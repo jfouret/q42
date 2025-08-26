@@ -35,7 +35,7 @@ class Config:
     
     # Model for generating the structured JSON output (score)
     # This should be a model that officially supports structured outputs on OpenRouter
-    STRUCTURED_OUTPUT_MODEL = os.environ.get("STRUCTURED_OUTPUT_MODEL", "openai/gpt-4o")
+    STRUCTURED_OUTPUT_MODEL = os.environ.get("STRUCTURED_OUTPUT_MODEL", "mistralai/mistral-medium-3.1")
     STRUCTURED_OUTPUT_TEMPERATURE = float(os.environ.get("STRUCTURED_OUTPUT_TEMPERATURE", 0))
     STRUCTURED_OUTPUT_TOP_K = int(os.environ.get("STRUCTURED_OUTPUT_TOP_K", 1))
 
