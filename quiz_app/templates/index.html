@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Start a New Quiz{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <h1 class="card-title">Configure Your Quiz</h1>
+        <form action="{{ url_for('main.start_quiz') }}" method="post">
+            
+            <div class="mb-3">
+                <label for="num_questions" class="form-label">Number of Questions:</label>
+                <input type="number" class="form-control" id="num_questions" name="num_questions" value="10" min="1" max="50">
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Categories:</label>
+                <div>
+                    {% for category in categories %}
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" name="categories" id="category-{{ loop.index }}" value="{{ category }}" checked>
+                        <label class="form-check-label" for="category-{{ loop.index }}">{{ category }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="attempt_multiplier" class="form-label">New Question Priority:</label>
+                <input type="range" class="form-range" id="attempt_multiplier" name="attempt_multiplier" value="1.2" step="0.1" min="1" max="3">
+                <small class="form-text text-muted">Higher values prioritize questions you've attempted less often.</small>
+            </div>
+
+            <div class="mb-3">
+                <label for="score_multiplier" class="form-label">Weak Point Priority:</label>
+                <input type="range" class="form-range" id="score_multiplier" name="score_multiplier" value="0.8" step="0.05" min="0.1" max="1">
+                <small class="form-text text-muted">Lower values prioritize questions where you have lower scores.</small>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Start Quiz</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

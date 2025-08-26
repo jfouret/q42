@@ -1,0 +1,7 @@
+Flask
+Flask-SQLAlchemy
+langchain
+langgraph
+python-dotenv
+openai
+deepgram-sdk>=3.0

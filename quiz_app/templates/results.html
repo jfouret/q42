@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Quiz Results{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Quiz Results for Session #{{ session_id }}</h1>
+
+    {% if not answers or answers[0].answer_text == None %}
+        <div class="text-center">
+            <h2>Processing your results...</h2>
+            <p>This may take a moment. The page will refresh automatically.</p>
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+        <script>
+            setTimeout(() => {
+                window.location.reload();
+            }, 5000); // Refresh every 5 seconds
+        </script>
+    {% else %}
+        {% for answer in answers %}
+        <div class="card mb-3">
+        <div class="card-header">
+            <strong>Question:</strong> {{ answer.question.question_text }}
+        </div>
+        <div class="card-body">
+            <p><strong>Your Answer:</strong> <em>{{ answer.answer_text | default('No answer recorded.', true) }}</em></p>
+            <p><strong>Score:</strong> 
+                {% for i in range(1, 6) %}
+                    <span class="star {% if i <= answer.score %}filled{% endif %}">★</span>
+                {% endfor %}
+                ({{ answer.score }}/5)
+            </p>
+            <div class="alert alert-info">
+                <strong>Justification:</strong>
+                <p>{{ answer.justification | default('Evaluation is still in progress or failed.', true) }}</p>
+            </div>
+            {% if answer.audio_file_path %}
+            <audio controls src="{{ url_for('main.serve_audio', session_id=answer.session_id, answer_id=answer.id) }}" class="mt-2"></audio>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+
+        <div class="text-center mt-4">
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary">Take Another Quiz</a>
+            <a href="{{ url_for('main.sessions_list') }}" class="btn btn-secondary">View All Sessions</a>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+.star {
+    font-size: 1.5rem;
+    color: #ccc;
+}
+.star.filled {
+    color: #ffc107;
+}
+</style>
+{% endblock %}

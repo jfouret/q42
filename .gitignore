@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Database
+database/quiz.db
+instance/
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# Dotenv
+.env
+.secrets
+
+# Uploads
+quiz_app/uploads/
