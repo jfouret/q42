@@ -8,6 +8,12 @@ This is a Flask-based web application for taking voice-based quizzes. It records
 
 - Python 3.10+
 - `uv` (a fast Python package installer and resolver)
+- `ffmpeg` (for audio processing)
+
+On Debian/Ubuntu, you can install `ffmpeg` with:
+```bash
+sudo apt-get update && sudo apt-get install -y ffmpeg
+```
 
 ### 2. Installation
 

@@ -10,7 +10,10 @@
             <tr>
                 <th>Session ID</th>
                 <th>Start Time</th>
-                <th>Number of Questions</th>
+                <th># Questions</th>
+                <th>Avg. Score</th>
+                <th>Max Score</th>
+                <th>Avg. Duration (s)</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -19,10 +22,16 @@
             <tr>
                 <td>{{ session.id }}</td>
                 <td>{{ session.start_time.strftime('%Y-%m-%d %H:%M:%S') }} UTC</td>
-                <td>{{ session.answers|length }}</td>
+                <td>{{ session.num_questions }}</td>
+                <td>{{ "%.2f"|format(session.avg_score) if session.avg_score is not none else 'N/A' }}</td>
+                <td>{{ session.max_score if session.max_score is not none else 'N/A' }}</td>
+                <td>{{ "%.2f"|format(session.avg_duration) if session.avg_duration is not none else 'N/A' }}</td>
                 <td>
-                    <a href="{{ url_for('main.session_detail', session_id=session.id) }}" class="btn btn-primary btn-sm">View Details</a>
-                    <a href="{{ url_for('main.export_session', session_id=session.id) }}" class="btn btn-secondary btn-sm">Export JSON</a>
+                    <a href="{{ url_for('main.session_detail', session_id=session.id) }}" class="btn btn-primary btn-sm">View</a>
+                    <a href="{{ url_for('main.export_session', session_id=session.id) }}" class="btn btn-secondary btn-sm">Export</a>
+                    <form action="{{ url_for('main.reprocess_session', session_id=session.id) }}" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to re-process this session? This will clear existing evaluation data.');">
+                        <button type="submit" class="btn btn-warning btn-sm">Reprocess</button>
+                    </form>
                 </td>
             </tr>
             {% else %}

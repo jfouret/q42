@@ -84,11 +84,12 @@ def submit_answer():
     os.makedirs(session_upload_dir, exist_ok=True)
 
     # Create a secure filename
-    filename = f"question_{question_id}.wav"
+    filename = f"question_{question_id}.webm"
     file_path = os.path.join(session_upload_dir, filename)
     
-    # Save the file
+    # Save the file and ensure it's closed properly
     audio_file.save(file_path)
+    audio_file.close()
 
     # Create a new Answer record with just the file path
     # The transcription and evaluation will happen on the results page
@@ -114,19 +115,13 @@ def next_question():
     
     return redirect(url_for('main.quiz'))
 
-@main_bp.route('/results')
-def results():
-    """
-    Processes all answers for the completed session and displays the results.
-    """
-    session_id = session.get('quiz_session_id')
-    if not session_id:
-        return redirect(url_for('main.index'))
-
-    # Fetch all answers for the session that haven't been processed yet
+def _process_session_answers(session_id):
+    """Helper function to run the AI pipeline for all unprocessed answers in a session."""
     answers_to_process = Answer.query.filter_by(session_id=session_id, answer_text=None).all()
 
-    # Create a snapshot of the necessary config to pass to the threads
+    if not answers_to_process:
+        return
+
     eval_config = {
         'DEEPGRAM_API_KEY': current_app.config.get('DEEPGRAM_API_KEY'),
         'DEEPGRAM_MODEL': current_app.config.get('DEEPGRAM_MODEL'),
@@ -144,7 +139,6 @@ def results():
         'STRUCTURED_CONTEXT_SYSTEM': current_app.config.get('STRUCTURED_CONTEXT_SYSTEM'),
     }
 
-    # Prepare a list of dictionaries with the data needed for processing
     tasks = []
     for answer in answers_to_process:
         tasks.append({
@@ -155,35 +149,24 @@ def results():
         })
 
     def process_single_answer(task_data):
-        """Processes one answer: gets duration, transcribes, and evaluates."""
         try:
             duration = get_audio_duration(task_data["audio_path"])
             transcribed_text = transcribe_audio(task_data["audio_path"], eval_config)
             evaluation_result = evaluate_answer(
-                task_data["question_text"], 
-                transcribed_text, 
-                task_data["category"], 
-                eval_config
+                task_data["question_text"], transcribed_text, task_data["category"], eval_config
             )
             return {
-                "answer_id": task_data["answer_id"],
-                "duration": duration,
-                "answer_text": transcribed_text,
-                "score": evaluation_result.get("score"),
+                "answer_id": task_data["answer_id"], "duration": duration,
+                "answer_text": transcribed_text, "score": evaluation_result.get("score"),
                 "justification": evaluation_result.get("justification")
             }
         except Exception as e:
-            print(f"Error processing answer {answer.id}: {e}")
-            return {
-                "answer_id": answer.id,
-                "justification": f"An error occurred during processing: {e}"
-            }
+            print(f"Error processing answer {task_data['answer_id']}: {e}")
+            return {"answer_id": task_data['answer_id'], "justification": f"An error occurred: {e}"}
 
-    # Process all answers in parallel
     with concurrent.futures.ThreadPoolExecutor() as executor:
         results = list(executor.map(process_single_answer, tasks))
 
-    # Update the database with the results from the parallel processing
     for result in results:
         answer = Answer.query.get(result["answer_id"])
         if answer:
@@ -194,13 +177,18 @@ def results():
     
     db.session.commit()
 
-    # Fetch all answers for the session again to display
-    final_answers = Answer.query.filter_by(session_id=session_id).order_by(Answer.id).all()
-    
-    # Render the results page first
-    response = make_response(render_template('results.html', answers=final_answers, session_id=session_id))
+@main_bp.route('/results')
+def results():
+    """Processes all answers for the completed session and displays the results."""
+    session_id = session.get('quiz_session_id')
+    if not session_id:
+        return redirect(url_for('main.index'))
 
-    # Clear the session after the response has been prepared
+    _process_session_answers(session_id)
+    
+    final_answers = Answer.query.filter_by(session_id=session_id).order_by(Answer.id).all()
+    response = make_response(render_template('results.html', answers=final_answers, session_id=session_id))
+    
     session.pop('quiz_session_id', None)
     session.pop('question_ids', None)
     session.pop('current_question_index', None)
@@ -217,15 +205,113 @@ def serve_audio(session_id, answer_id):
 
 @main_bp.route('/sessions')
 def sessions_list():
-    """Displays a list of all past quiz sessions."""
-    sessions = QuizSession.query.order_by(QuizSession.start_time.desc()).all()
+    """Displays a list of all past quiz sessions with aggregated stats."""
+    from sqlalchemy import func, desc
+    from sqlalchemy.orm import aliased
+
+    # Alias for a subquery to get the last score
+    last_answer_subquery = db.session.query(
+        Answer.session_id,
+        func.max(Answer.timestamp).label('last_timestamp')
+    ).group_by(Answer.session_id).subquery()
+
+    last_answer = aliased(Answer)
+
+    sessions_with_stats = db.session.query(
+        QuizSession,
+        func.count(Answer.id).label('num_questions'),
+        func.avg(Answer.score).label('avg_score'),
+        func.max(Answer.score).label('max_score'),
+        func.avg(Answer.duration).label('avg_duration')
+    ).outerjoin(Answer, QuizSession.id == Answer.session_id)\
+     .group_by(QuizSession.id)\
+     .order_by(desc(QuizSession.start_time))\
+     .all()
+
+    # The query returns tuples, so we need to combine them
+    sessions = []
+    for session_obj, num_q, avg_s, max_s, avg_d in sessions_with_stats:
+        session_obj.num_questions = num_q
+        session_obj.avg_score = avg_s
+        session_obj.max_score = max_s
+        session_obj.avg_duration = avg_d
+        sessions.append(session_obj)
+
     return render_template('sessions.html', sessions=sessions)
 
 @main_bp.route('/session/<int:session_id>')
 def session_detail(session_id):
     """Displays the detailed results for a specific session."""
-    session = QuizSession.query.get_or_404(session_id)
-    return render_template('results.html', answers=session.answers, session_id=session.id)
+    quiz_session = QuizSession.query.get_or_404(session_id)
+    return render_template('results.html', answers=quiz_session.answers, session_id=session_id)
+
+@main_bp.route('/reprocess_session/<int:session_id>', methods=['POST'])
+def reprocess_session(session_id):
+    """Clears and re-runs the evaluation for all answers in a session."""
+    answers_to_reprocess = Answer.query.filter_by(session_id=session_id).all()
+    for answer in answers_to_reprocess:
+        answer.answer_text = None
+        answer.score = None
+        answer.justification = None
+        answer.duration = None
+    db.session.commit()
+
+    # Now, trigger the processing and redirect to the results page
+    _process_session_answers(session_id)
+    return redirect(url_for('main.session_detail', session_id=session_id))
+
+@main_bp.route('/questions')
+def questions_list():
+    """Displays a list of all questions and their stats."""
+    from sqlalchemy import func, desc
+    from sqlalchemy.orm import aliased
+
+    # Subquery to find the last answer for each question
+    last_answer_subquery = db.session.query(
+        Answer.question_id,
+        func.max(Answer.timestamp).label('last_timestamp')
+    ).group_by(Answer.question_id).subquery()
+
+    last_answer = aliased(Answer)
+
+    questions_with_stats = db.session.query(
+        Question,
+        func.count(Answer.id).label('times_answered'),
+        func.avg(Answer.score).label('avg_score'),
+        func.max(Answer.score).label('max_score'),
+        func.avg(Answer.duration).label('avg_duration'),
+        func.min(Answer.duration).label('min_duration'),
+        last_answer.duration.label('last_duration'),
+        last_answer.score.label('last_score')
+    ).outerjoin(Answer, Question.id == Answer.question_id)\
+     .outerjoin(last_answer_subquery, Question.id == last_answer_subquery.c.question_id)\
+     .outerjoin(last_answer, (last_answer.question_id == last_answer_subquery.c.question_id) & (last_answer.timestamp == last_answer_subquery.c.last_timestamp))\
+     .group_by(Question.id)\
+     .order_by(Question.id)\
+     .all()
+     
+    # The query returns tuples, so we need to combine them
+    questions = []
+    for q_obj, times_answered, avg_score, max_score, avg_duration, min_duration, last_duration, last_score in questions_with_stats:
+        q_obj.times_answered = times_answered
+        q_obj.avg_score = avg_score
+        q_obj.max_score = max_score
+        q_obj.avg_duration = avg_duration
+        q_obj.min_duration = min_duration
+        q_obj.last_duration = last_duration
+        q_obj.last_score = last_score
+        questions.append(q_obj)
+        
+    return render_template('questions.html', questions=questions)
+
+@main_bp.route('/reset_database', methods=['POST'])
+def reset_database():
+    """Drops all data, recreates tables, and reloads questions."""
+    db.drop_all()
+    db.create_all()
+    from .quiz_logic import load_questions_from_json
+    load_questions_from_json()
+    return redirect(url_for('main.index'))
 
 @main_bp.route('/export_session/<int:session_id>')
 def export_session(session_id):

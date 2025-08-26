@@ -17,7 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 mediaRecorder.onstop = async () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    
                     // Wait for the server to confirm the upload before moving on.
                     await sendAudioToServer(audioBlob);
                     
@@ -58,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData();
             const questionId = document.querySelector('.card').dataset.questionId;
 
-            formData.append('audio', audioBlob, 'recording.wav');
+            formData.append('audio', audioBlob, 'recording.webm');
             formData.append('question_id', questionId);
 
             try {
@@ -85,4 +86,5 @@ document.addEventListener('DOMContentLoaded', () => {
         // Set up the button to stop the current recording and submit
         nextBtn.addEventListener('click', stopRecordingAndSubmit);
     }
+
 });

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}All Questions{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">All Questions</h1>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Question Text</th>
+                <th>Category</th>
+                <th>Times Answered</th>
+                <th>Avg. Score</th>
+                <th>Max Score</th>
+                <th>Avg. Duration (s)</th>
+                <th>Min. Duration (s)</th>
+                <th>Last Duration (s)</th>
+                <th>Last Score</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for question in questions %}
+            <tr>
+                <td>{{ question.id }}</td>
+                <td>{{ question.question_text }}</td>
+                <td>{{ question.category }}</td>
+                <td>{{ question.times_answered }}</td>
+                <td>{{ "%.2f"|format(question.avg_score) if question.avg_score is not none else 'N/A' }}</td>
+                <td>{{ question.max_score if question.max_score is not none else 'N/A' }}</td>
+                <td>{{ "%.2f"|format(question.avg_duration) if question.avg_duration is not none else 'N/A' }}</td>
+                <td>{{ "%.2f"|format(question.min_duration) if question.min_duration is not none else 'N/A' }}</td>
+                <td>{{ "%.2f"|format(question.last_duration) if question.last_duration is not none else 'N/A' }}</td>
+                <td>{{ question.last_score if question.last_score is not none else 'N/A' }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" class="text-center">No questions found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
