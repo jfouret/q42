@@ -4,7 +4,7 @@ import os
 from . import db
 from .models import Question
 
-def load_questions_from_json(directory='data/questions'):
+def load_questions_from_json(directory):
     """
     Loads all .json files from a directory into the database.
     

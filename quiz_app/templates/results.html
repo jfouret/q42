@@ -35,7 +35,7 @@
             </p>
             <div class="alert alert-info">
                 <strong>Justification:</strong>
-                <p>{{ answer.justification | default('Evaluation is still in progress or failed.', true) }}</p>
+                <p>{{ answer.justification | markdown | safe }}</p>
             </div>
             {% if answer.audio_file_path %}
             <audio controls src="{{ url_for('main.serve_audio', session_id=answer.session_id, answer_id=answer.id) }}" class="mt-2"></audio>

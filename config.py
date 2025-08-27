@@ -12,6 +12,17 @@ DB_DIR = os.path.join(BASE_DIR, 'database')
 if not os.path.exists(DB_DIR):
     os.makedirs(DB_DIR)
 
+def _read_file_content(path):
+    """Helper function to read file content. Returns empty string if file not found."""
+    if path and os.path.exists(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except IOError as e:
+            print(f"Error reading file {path}: {e}")
+            return ""
+    return ""
+
 class Config:
     """Base configuration."""
     SECRET_KEY = os.environ.get('SECRET_KEY', 'a_default_secret_key_for_development')
@@ -39,8 +50,11 @@ class Config:
     STRUCTURED_OUTPUT_TEMPERATURE = float(os.environ.get("STRUCTURED_OUTPUT_TEMPERATURE", 0))
     STRUCTURED_OUTPUT_TOP_K = int(os.environ.get("STRUCTURED_OUTPUT_TOP_K", 1))
 
-    # Optional context for prompts
-    REASONING_CONTEXT_USER = os.environ.get("REASONING_CONTEXT_USER", "")
-    REASONING_CONTEXT_SYSTEM = os.environ.get("REASONING_CONTEXT_SYSTEM", "")
-    STRUCTURED_CONTEXT_USER = os.environ.get("STRUCTURED_CONTEXT_USER", "")
-    STRUCTURED_CONTEXT_SYSTEM = os.environ.get("STRUCTURED_CONTEXT_SYSTEM", "")
+    # Optional context for prompts, loaded from files
+    REASONING_CONTEXT_USER = _read_file_content(os.environ.get("REASONING_CONTEXT_USER"))
+    REASONING_CONTEXT_SYSTEM = _read_file_content(os.environ.get("REASONING_CONTEXT_SYSTEM"))
+    STRUCTURED_CONTEXT_USER = _read_file_content(os.environ.get("STRUCTURED_CONTEXT_USER"))
+    STRUCTURED_CONTEXT_SYSTEM = _read_file_content(os.environ.get("STRUCTURED_CONTEXT_SYSTEM"))
+
+    # Directory for questions
+    QUESTIONS_DIR = os.environ.get("QUESTIONS_DIR", os.path.join(BASE_DIR, 'data', 'questions'))

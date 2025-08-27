@@ -1,8 +1,12 @@
 import json
+from langchain.globals import set_verbose
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from pydantic import BaseModel, Field
+
+# Suppress the verbose warning by setting the global verbosity flag
+set_verbose(False)
 
 # Define the desired JSON structure for the score
 class QuizGrade(BaseModel):

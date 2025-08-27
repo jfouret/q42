@@ -22,3 +22,7 @@ instance/
 
 # Uploads
 quiz_app/uploads/
+
+# Import questions
+data/CNRS_QUESTIONS
+

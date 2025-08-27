@@ -310,7 +310,9 @@ def reset_database():
     db.drop_all()
     db.create_all()
     from .quiz_logic import load_questions_from_json
-    load_questions_from_json()
+    questions_dir = current_app.config.get('QUESTIONS_DIR')
+    if questions_dir:
+        load_questions_from_json(questions_dir)
     return redirect(url_for('main.index'))
 
 @main_bp.route('/export_session/<int:session_id>')

@@ -55,3 +55,27 @@ You can now access the application at **http://127.0.0.1:5000**.
 ## Stopping the Application
 
 - To stop the Flask app, press `Ctrl+C` in the terminal.
+
+## Question Database
+
+The application loads questions from JSON files located in the directory specified by the `QUESTIONS_DIR` environment variable (default: `data/questions`).
+
+Each JSON file should contain a list of question objects. The format for each object is as follows:
+
+```json
+[
+  {
+    "question": "What is the capital of France?",
+    "category": "Geography"
+  },
+  {
+    "question": "Who wrote 'To Kill a Mockingbird'?",
+    "category": "Literature"
+  }
+]
+```
+
+-   `question`: The text of the question.
+-   `category`: The category of the question. If not provided, the filename (without the `.json` extension) will be used as the category.
+
+You can add your own `.json` files to the `data/questions` directory to expand the question pool.
