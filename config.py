@@ -58,3 +58,7 @@ class Config:
 
     # Directory for questions
     QUESTIONS_DIR = os.environ.get("QUESTIONS_DIR", os.path.join(BASE_DIR, 'data', 'questions'))
+
+    # Speechify TTS Configuration
+    SPEECHIFY_API_TOKEN = os.environ.get('SPEECHIFY_API_TOKEN')
+    TTS_AUDIO_DIR = os.environ.get("TTS_AUDIO_DIR", os.path.join(BASE_DIR, 'quiz_app', 'static', 'audio', 'tts'))

@@ -7,7 +7,7 @@ class QuizSession(db.Model):
     start_time = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     # Configuration details can be stored as a JSON string or in separate columns
     config = db.Column(db.String, nullable=False) 
-    answers = db.relationship('Answer', backref='session', lazy=True)
+    answers = db.relationship('Answer', backref='session', lazy=True, cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<QuizSession id={self.id}>"

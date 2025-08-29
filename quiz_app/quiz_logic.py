@@ -55,7 +55,7 @@ def load_questions_from_json(directory):
 def select_questions(categories, num_questions, attempt_multiplier, score_multiplier):
     """
     Selects questions using a weighted random algorithm based on performance.
-    Weight = (attempt_multiplier^(mean_attempts - attempts)) * (score_multiplier^(score - mean_score))
+    Weight = (attempt_multiplier^(mean_attempts - attempts)) * (score_multiplier^(mean_score - score))
     """
     from sqlalchemy import func
     from .models import Answer
@@ -99,8 +99,8 @@ def select_questions(categories, num_questions, attempt_multiplier, score_multip
 
         # Calculate weight components
         attempt_weight = math.pow(attempt_multiplier, mean_attempts - attempts)
-        # The score multiplier is < 1, so a lower score (score < mean_score) results in a negative exponent, increasing the weight.
-        score_weight = math.pow(score_multiplier, score - mean_score)
+        # A higher score_multiplier now correctly increases the weight for questions with lower scores.
+        score_weight = math.pow(score_multiplier, mean_score - score)
         
         final_weight = attempt_weight * score_weight
         weights.append(final_weight)

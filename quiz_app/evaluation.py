@@ -12,7 +12,7 @@ set_verbose(False)
 class QuizGrade(BaseModel):
     score: int = Field(description="The score from 1 to 5, where 1 is poor and 5 is excellent.")
 
-def get_openrouter_client(model_name, temperature, top_k, api_key):
+def get_openrouter_client(model_name, temperature, top_k, api_key, max_retries):
     """Helper function to create a ChatOpenAI client for OpenRouter."""
     return ChatOpenAI(
         model=model_name,
@@ -22,7 +22,8 @@ def get_openrouter_client(model_name, temperature, top_k, api_key):
         default_headers={
             "HTTP-Referer": "http://localhost", 
             "X-Title": "AI Quizzer"
-        }
+        },
+        max_retries=max_retries
     )
 
 def evaluate_answer(question, answer, category, config):
@@ -41,7 +42,8 @@ def evaluate_answer(question, answer, category, config):
             config['REASONING_MODEL'],
             config['REASONING_TEMPERATURE'],
             config['REASONING_TOP_K'],
-            api_key
+            api_key,
+            config.get('OPENROUTER_MAX_RETRIES', 3)
         )
         
         reasoning_context_system = config.get("REASONING_CONTEXT_SYSTEM", "")
@@ -73,7 +75,8 @@ def evaluate_answer(question, answer, category, config):
             config['STRUCTURED_OUTPUT_MODEL'],
             config['STRUCTURED_OUTPUT_TEMPERATURE'],
             config['STRUCTURED_OUTPUT_TOP_K'],
-            api_key
+            api_key,
+            config.get('OPENROUTER_MAX_RETRIES', 3)
         ).with_structured_output(QuizGrade)
 
         structured_context_system = config.get("STRUCTURED_CONTEXT_SYSTEM", "")

@@ -4,6 +4,7 @@ from .quiz_logic import select_questions
 from .stt import transcribe_audio
 from .evaluation import evaluate_answer
 from .audio_utils import get_audio_duration
+from .tts import generate_speech_file
 from . import db
 import os
 import concurrent.futures
@@ -22,8 +23,13 @@ def start_quiz():
     """Starts a new quiz session based on form data."""
     num_questions = int(request.form.get('num_questions', 5))
     categories = request.form.getlist('categories')
-    attempt_multiplier = float(request.form.get('attempt_multiplier', 1.2))
-    score_multiplier = float(request.form.get('score_multiplier', 0.8))
+
+    # Check if weighting is enabled, otherwise use a neutral value of 1.0
+    enable_attempt_weighting = request.form.get('enable_attempt_weighting') == 'on'
+    enable_score_weighting = request.form.get('enable_score_weighting') == 'on'
+
+    attempt_multiplier = float(request.form.get('attempt_multiplier', 1.5)) if enable_attempt_weighting else 1.0
+    score_multiplier = float(request.form.get('score_multiplier', 1.5)) if enable_score_weighting else 1.0
 
     if not categories:
         # Handle case where no categories are selected
@@ -114,6 +120,22 @@ def next_question():
     session['current_question_index'] = current_index + 1
     
     return redirect(url_for('main.quiz'))
+
+@main_bp.route('/skip_question', methods=['POST'])
+def skip_question():
+    """Skips the current question without saving an answer."""
+    if 'quiz_session_id' not in session:
+        return jsonify({'error': 'No active quiz session'}), 400
+
+    # Just advance the question index
+    current_index = session.get('current_question_index', 0)
+    session['current_question_index'] = current_index + 1
+
+    question_ids = session.get('question_ids', [])
+    if session['current_question_index'] >= len(question_ids):
+        return jsonify({'status': 'finished', 'url': url_for('main.results')})
+    else:
+        return jsonify({'status': 'ok', 'url': url_for('main.quiz')})
 
 def _process_session_answers(session_id):
     """Helper function to run the AI pipeline for all unprocessed answers in a session."""
@@ -245,6 +267,100 @@ def session_detail(session_id):
     quiz_session = QuizSession.query.get_or_404(session_id)
     return render_template('results.html', answers=quiz_session.answers, session_id=session_id)
 
+def _get_eval_config():
+    """Helper to get the full evaluation configuration from the app config."""
+    return {
+        'DEEPGRAM_API_KEY': current_app.config.get('DEEPGRAM_API_KEY'),
+        'DEEPGRAM_MODEL': current_app.config.get('DEEPGRAM_MODEL'),
+        'DEEPGRAM_LANGUAGE': current_app.config.get('DEEPGRAM_LANGUAGE'),
+        'DEEPGRAM_MAX_RETRIES': current_app.config.get('DEEPGRAM_MAX_RETRIES', 3),
+        'DEEPGRAM_RETRY_DELAY': current_app.config.get('DEEPGRAM_RETRY_DELAY', 1),
+        'OPENROUTER_API_KEY': current_app.config.get('OPENROUTER_API_KEY'),
+        'REASONING_MODEL': current_app.config.get('REASONING_MODEL'),
+        'REASONING_TEMPERATURE': current_app.config.get('REASONING_TEMPERATURE'),
+        'REASONING_TOP_K': current_app.config.get('REASONING_TOP_K'),
+        'STRUCTURED_OUTPUT_MODEL': current_app.config.get('STRUCTURED_OUTPUT_MODEL'),
+        'STRUCTURED_OUTPUT_TEMPERATURE': current_app.config.get('STRUCTURED_OUTPUT_TEMPERATURE'),
+        'STRUCTURED_OUTPUT_TOP_K': current_app.config.get('STRUCTURED_OUTPUT_TOP_K'),
+        'OPENROUTER_MAX_RETRIES': current_app.config.get('OPENROUTER_MAX_RETRIES', 3),
+        'REASONING_CONTEXT_USER': current_app.config.get('REASONING_CONTEXT_USER'),
+        'REASONING_CONTEXT_SYSTEM': current_app.config.get('REASONING_CONTEXT_SYSTEM'),
+        'STRUCTURED_CONTEXT_USER': current_app.config.get('STRUCTURED_CONTEXT_USER'),
+        'STRUCTURED_CONTEXT_SYSTEM': current_app.config.get('STRUCTURED_CONTEXT_SYSTEM'),
+    }
+
+def _reevaluate_and_save(answer):
+    """Helper function to re-evaluate an answer and save it."""
+    eval_config = _get_eval_config()
+    evaluation_result = evaluate_answer(
+        answer.question.question_text,
+        answer.answer_text,
+        answer.question.category,
+        eval_config
+    )
+    answer.score = evaluation_result.get("score")
+    answer.justification = evaluation_result.get("justification")
+    db.session.commit()
+    return answer
+
+@main_bp.route('/re-transcribe/<int:answer_id>', methods=['POST'])
+def re_transcribe(answer_id):
+    """Re-runs transcription and evaluation for a single answer."""
+    answer = Answer.query.get_or_404(answer_id)
+    eval_config = _get_eval_config()
+    
+    if not answer.audio_file_path:
+        return jsonify({"success": False, "error": "No audio file available for this answer."}), 400
+
+    # Re-transcribe
+    transcribed_text = transcribe_audio(answer.audio_file_path, eval_config)
+    answer.answer_text = transcribed_text
+    
+    # Re-evaluate
+    updated_answer = _reevaluate_and_save(answer)
+
+    return jsonify({
+        "success": True,
+        "answer_text": updated_answer.answer_text,
+        "score": updated_answer.score,
+        "justification": updated_answer.justification
+    })
+
+@main_bp.route('/re-evaluate/<int:answer_id>', methods=['POST'])
+def re_evaluate(answer_id):
+    """Re-runs evaluation for a single answer."""
+    answer = Answer.query.get_or_404(answer_id)
+    
+    if not answer.answer_text:
+        return jsonify({"success": False, "error": "No transcription available to evaluate."}), 400
+
+    updated_answer = _reevaluate_and_save(answer)
+
+    return jsonify({
+        "success": True,
+        "score": updated_answer.score,
+        "justification": updated_answer.justification
+    })
+
+@main_bp.route('/edit-transcription/<int:answer_id>', methods=['POST'])
+def edit_transcription(answer_id):
+    """Updates the transcription and re-evaluates the answer."""
+    answer = Answer.query.get_or_404(answer_id)
+    new_text = request.json.get('text')
+
+    if new_text is None:
+        return jsonify({"success": False, "error": "No text provided."}), 400
+
+    answer.answer_text = new_text
+    updated_answer = _reevaluate_and_save(answer)
+
+    return jsonify({
+        "success": True,
+        "answer_text": updated_answer.answer_text,
+        "score": updated_answer.score,
+        "justification": updated_answer.justification
+    })
+
 @main_bp.route('/reprocess_session/<int:session_id>', methods=['POST'])
 def reprocess_session(session_id):
     """Clears and re-runs the evaluation for all answers in a session."""
@@ -315,6 +431,28 @@ def reset_database():
         load_questions_from_json(questions_dir)
     return redirect(url_for('main.index'))
 
+@main_bp.route('/generate-audio', methods=['POST'])
+def generate_audio():
+    """Generates audio files for all questions."""
+    questions = Question.query.all()
+    created_count = 0
+    skipped_count = 0
+    failed_count = 0
+
+    for question in questions:
+        file_path, status = generate_speech_file(question.id, question.question_text)
+        if status == 'created':
+            created_count += 1
+        elif status == 'skipped':
+            skipped_count += 1
+        else:
+            failed_count += 1
+    
+    return jsonify({
+        'success': True, 
+        'message': f'Audio generation complete. Created: {created_count}, Skipped: {skipped_count}, Failed: {failed_count}'
+    })
+
 @main_bp.route('/export_session/<int:session_id>')
 def export_session(session_id):
     """Exports a session's data to a JSON file."""
@@ -342,3 +480,11 @@ def export_session(session_id):
     response = jsonify(session_data)
     response.headers['Content-Disposition'] = f'attachment; filename=session_{session_id}.json'
     return response
+
+@main_bp.route('/delete_session/<int:session_id>', methods=['POST'])
+def delete_session(session_id):
+    """Deletes a session and all its associated answers."""
+    session_to_delete = QuizSession.query.get_or_404(session_id)
+    db.session.delete(session_to_delete)
+    db.session.commit()
+    return redirect(url_for('main.sessions_list'))

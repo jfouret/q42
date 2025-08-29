@@ -15,36 +15,164 @@
             
             <div class="mb-3">
                 <label class="form-label">Categories:</label>
-                <div>
+                <div class="mb-2">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="toggleCategories(true)">Select All</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="toggleCategories(false)">Deselect All</button>
+                </div>
+                <div id="category-list">
                     {% for category in categories %}
                     <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="checkbox" name="categories" id="category-{{ loop.index }}" value="{{ category }}" checked>
+                        <input class="form-check-input category-checkbox" type="checkbox" name="categories" id="category-{{ loop.index }}" value="{{ category }}" checked>
                         <label class="form-check-label" for="category-{{ loop.index }}">{{ category }}</label>
                     </div>
                     {% endfor %}
                 </div>
             </div>
 
-            <div class="mb-3">
-                <label for="attempt_multiplier" class="form-label">New Question Priority:</label>
-                <input type="range" class="form-range" id="attempt_multiplier" name="attempt_multiplier" value="1.2" step="0.1" min="1" max="3">
-                <small class="form-text text-muted">Higher values prioritize questions you've attempted less often.</small>
+            <hr>
+            <h5 class="mb-3">Question Weighting</h5>
+
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" id="enable_attempt_weighting" name="enable_attempt_weighting" checked>
+                <label class="form-check-label" for="enable_attempt_weighting">Prioritize New Questions</label>
+            </div>
+            <div id="attempt_weighting_controls" class="mb-3">
+                <label for="attempt_multiplier" class="form-label">Priority Multiplier: <span id="attempt_multiplier_value" class="badge bg-secondary">1.5</span></label>
+                <input type="range" class="form-range" id="attempt_multiplier" name="attempt_multiplier" value="1.5" step="0.1" min="1" max="3">
+                <small class="form-text text-muted">Prioritizes questions you've seen less often. A higher value means a stronger preference for new questions.</small>
             </div>
 
-            <div class="mb-3">
-                <label for="score_multiplier" class="form-label">Weak Point Priority:</label>
-                <input type="range" class="form-range" id="score_multiplier" name="score_multiplier" value="0.8" step="0.05" min="0.1" max="1">
-                <small class="form-text text-muted">Lower values prioritize questions where you have lower scores.</small>
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" id="enable_score_weighting" name="enable_score_weighting" checked>
+                <label class="form-check-label" for="enable_score_weighting">Prioritize Weak Points</label>
+            </div>
+            <div id="score_weighting_controls" class="mb-3">
+                <label for="score_multiplier" class="form-label">Priority Multiplier: <span id="score_multiplier_value" class="badge bg-secondary">1.5</span></label>
+                <input type="range" class="form-range" id="score_multiplier" name="score_multiplier" value="1.5" step="0.1" min="1" max="3">
+                <small class="form-text text-muted">Prioritizes questions where you have lower scores. A higher value means a stronger focus on your weak points.</small>
             </div>
 
             <button type="submit" class="btn btn-primary">Start Quiz</button>
         </form>
-        <hr>
-        <div class="mt-3">
-            <form action="{{ url_for('main.reset_database') }}" method="post" onsubmit="return confirm('Are you sure you want to delete all quiz data? This cannot be undone.');">
-                <button type="submit" class="btn btn-danger btn-sm">Reset Database</button>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-body">
+        <h5 class="card-title">Audio & Microphone Setup</h5>
+        <div id="audio-setup-alert" class="alert d-none" role="alert"></div>
+        <div class="d-grid gap-2 d-md-flex">
+            <button id="test-mic-btn" class="btn btn-info">Test Microphone</button>
+            <button id="test-volume-btn" class="btn btn-info">Test Volume</button>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-body">
+        <h5 class="card-title">Admin Actions</h5>
+        <div id="admin-alert" class="alert d-none" role="alert"></div>
+        <div class="d-grid gap-2 d-md-flex">
+            <button id="generate-audio-btn" class="btn btn-warning">Generate Question Audio</button>
+            <form action="{{ url_for('main.reset_database') }}" method="post" onsubmit="return confirm('Are you sure you want to delete all quiz data? This cannot be undone.');" class="d-inline">
+                <button type="submit" class="btn btn-danger">Reset Database</button>
             </form>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const generateAudioBtn = document.getElementById('generate-audio-btn');
+    const testMicBtn = document.getElementById('test-mic-btn');
+    const testVolumeBtn = document.getElementById('test-volume-btn');
+    const adminAlert = document.getElementById('admin-alert');
+    const audioSetupAlert = document.getElementById('audio-setup-alert');
+
+    const showAlert = (alertEl, message, type = 'info') => {
+        alertEl.className = `alert alert-${type}`;
+        alertEl.textContent = message;
+        alertEl.classList.remove('d-none');
+    };
+
+    if (generateAudioBtn) {
+        generateAudioBtn.addEventListener('click', async () => {
+            showAlert(adminAlert, 'Generating audio files... This may take a moment.', 'info');
+            generateAudioBtn.disabled = true;
+            try {
+                const response = await fetch("{{ url_for('main.generate_audio') }}", { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    showAlert(adminAlert, data.message, 'success');
+                } else {
+                    showAlert(adminAlert, data.message || 'An unknown error occurred.', 'danger');
+                }
+            } catch (error) {
+                showAlert(adminAlert, 'A network error occurred.', 'danger');
+            } finally {
+                generateAudioBtn.disabled = false;
+            }
+        });
+    }
+
+    if (testMicBtn) {
+        testMicBtn.addEventListener('click', async () => {
+            try {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                showAlert(audioSetupAlert, 'Microphone access granted!', 'success');
+            } catch (err) {
+                showAlert(audioSetupAlert, 'Microphone access denied. Please check browser permissions.', 'danger');
+            }
+        });
+    }
+
+    if (testVolumeBtn) {
+        testVolumeBtn.addEventListener('click', () => {
+            // Use a reliable sound from Google's sound library
+            const testAudio = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
+            testAudio.play()
+                .then(() => showAlert(audioSetupAlert, 'Playing test sound. Can you hear it?', 'info'))
+                .catch(() => showAlert(audioSetupAlert, 'Could not play test sound.', 'danger'));
+        });
+    }
+});
+
+function toggleCategories(checked) {
+    document.querySelectorAll('.category-checkbox').forEach(checkbox => {
+        checkbox.checked = checked;
+    });
+}
+
+function setupSlider(sliderId, displayId, controlsId, switchId) {
+    const slider = document.getElementById(sliderId);
+    const display = document.getElementById(displayId);
+    const controls = document.getElementById(controlsId);
+    const switchInput = document.getElementById(switchId);
+
+    // Function to update display
+    const updateDisplay = () => {
+        display.textContent = slider.value;
+    };
+
+    // Function to toggle controls
+    const toggleControls = () => {
+        controls.style.display = switchInput.checked ? '' : 'none';
+    };
+
+    // Event listeners
+    slider.addEventListener('input', updateDisplay);
+    switchInput.addEventListener('change', toggleControls);
+
+    // Initial state
+    updateDisplay();
+    toggleControls();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setupSlider('attempt_multiplier', 'attempt_multiplier_value', 'attempt_weighting_controls', 'enable_attempt_weighting');
+    setupSlider('score_multiplier', 'score_multiplier_value', 'score_weighting_controls', 'enable_score_weighting');
+});
+</script>
 {% endblock %}

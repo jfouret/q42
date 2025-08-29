@@ -7,3 +7,4 @@ openai
 deepgram-sdk>=3.0
 pydub
 Markdown
+requests

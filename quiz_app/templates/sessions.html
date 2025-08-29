@@ -32,6 +32,9 @@
                     <form action="{{ url_for('main.reprocess_session', session_id=session.id) }}" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to re-process this session? This will clear existing evaluation data.');">
                         <button type="submit" class="btn btn-warning btn-sm">Reprocess</button>
                     </form>
+                    <form action="{{ url_for('main.delete_session', session_id=session.id) }}" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this session and all its answers? This action cannot be undone.');">
+                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
                 </td>
             </tr>
             {% else %}
