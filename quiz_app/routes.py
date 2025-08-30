@@ -433,6 +433,30 @@ def questions_list():
         
     return render_template('questions.html', questions=questions)
 
+@main_bp.route('/categories')
+def categories_summary():
+    """Displays a summary of performance by category."""
+    from sqlalchemy import func, desc
+
+    last_n_sessions = request.args.get('last_n_sessions', type=int)
+
+    query = db.session.query(
+        Question.category,
+        func.avg(Answer.score).label('avg_score'),
+        func.max(Answer.score).label('max_score'),
+        func.avg(Answer.duration).label('avg_duration'),
+        func.count(Answer.id).label('num_questions')
+    ).join(Answer, Question.id == Answer.question_id)
+
+    if last_n_sessions:
+        # Get the IDs of the last N sessions
+        latest_session_ids = [s.id for s in db.session.query(QuizSession.id).order_by(desc(QuizSession.start_time)).limit(last_n_sessions).all()]
+        query = query.filter(Answer.session_id.in_(latest_session_ids))
+
+    category_stats = query.group_by(Question.category).order_by(Question.category).all()
+
+    return render_template('categories.html', category_stats=category_stats, last_n_sessions=last_n_sessions)
+
 @main_bp.route('/reset_database', methods=['POST'])
 def reset_database():
     """Drops all data, recreates tables, and reloads questions."""

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Category Summary{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="my-4">Category Summary</h1>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Filter by Sessions</h5>
+            <form method="GET" action="{{ url_for('main.categories_summary') }}" class="form-inline">
+                <div class="form-group mr-2">
+                    <label for="last_n_sessions" class="mr-2">Show data from the last</label>
+                    <input type="number" class="form-control" id="last_n_sessions" name="last_n_sessions" value="{{ last_n_sessions or '' }}" placeholder="e.g., 5">
+                </div>
+                <button type="submit" class="btn btn-primary">Filter</button>
+                <a href="{{ url_for('main.categories_summary') }}" class="btn btn-secondary ml-2">Clear</a>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered table-sortable" id="categories-table">
+            <thead class="thead-dark">
+                <tr>
+                    <th scope="col">Category</th>
+                    <th scope="col">Avg Score</th>
+                    <th scope="col">Max Score</th>
+                    <th scope="col">Avg Duration (s)</th>
+                    <th scope="col">Num Questions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stat in category_stats %}
+                <tr>
+                    <td>{{ stat.category }}</td>
+                    <td>{{ '%.2f'|format(stat.avg_score|float) if stat.avg_score is not none else 'N/A' }}</td>
+                    <td>{{ stat.max_score if stat.max_score is not none else 'N/A' }}</td>
+                    <td>{{ '%.2f'|format(stat.avg_duration|float) if stat.avg_duration is not none else 'N/A' }}</td>
+                    <td>{{ stat.num_questions }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center">No data available for the selected period.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
