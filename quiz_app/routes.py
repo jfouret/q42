@@ -86,23 +86,28 @@ def submit_answer():
         return jsonify({'error': 'Missing audio file or question ID'}), 400
 
     # Create a directory for the session if it doesn't exist
+    # Note: uploads are stored relative to the application's root path
     session_upload_dir = os.path.join(current_app.root_path, 'uploads', str(session_id))
     os.makedirs(session_upload_dir, exist_ok=True)
 
-    # Create a secure filename
+    # Create a secure filename and the full absolute path for saving
     filename = f"question_{question_id}.webm"
-    file_path = os.path.join(session_upload_dir, filename)
+    absolute_path = os.path.join(session_upload_dir, filename)
     
-    # Save the file and ensure it's closed properly
-    audio_file.save(file_path)
+    # Save the file
+    audio_file.save(absolute_path)
     audio_file.close()
 
-    # Create a new Answer record with just the file path
-    # The transcription and evaluation will happen on the results page
+    # Generate the relative path to store in the database
+    # This path is relative to the project root (one level above app root)
+    project_root = os.path.abspath(os.path.join(current_app.root_path, '..'))
+    relative_path = os.path.relpath(absolute_path, project_root)
+
+    # Create a new Answer record with the relative file path
     new_answer = Answer(
         session_id=session_id,
         question_id=question_id,
-        audio_file_path=file_path
+        audio_file_path=relative_path
     )
     db.session.add(new_answer)
     db.session.commit()
@@ -161,11 +166,13 @@ def _process_session_answers(session_id):
         'STRUCTURED_CONTEXT_SYSTEM': current_app.config.get('STRUCTURED_CONTEXT_SYSTEM'),
     }
 
+    project_root = os.path.abspath(os.path.join(current_app.root_path, '..'))
     tasks = []
     for answer in answers_to_process:
+        absolute_audio_path = os.path.join(project_root, answer.audio_file_path)
         tasks.append({
             "answer_id": answer.id,
-            "audio_path": answer.audio_file_path,
+            "audio_path": absolute_audio_path,
             "question_text": answer.question.question_text,
             "category": answer.question.category
         })
@@ -223,7 +230,10 @@ def serve_audio(session_id, answer_id):
     answer = Answer.query.get_or_404(answer_id)
     if answer.session_id != session_id:
         return "Not Found", 404
-    return send_file(answer.audio_file_path)
+    
+    project_root = os.path.abspath(os.path.join(current_app.root_path, '..'))
+    absolute_path = os.path.join(project_root, answer.audio_file_path)
+    return send_file(absolute_path)
 
 @main_bp.route('/sessions')
 def sessions_list():
@@ -312,8 +322,11 @@ def re_transcribe(answer_id):
     if not answer.audio_file_path:
         return jsonify({"success": False, "error": "No audio file available for this answer."}), 400
 
+    project_root = os.path.abspath(os.path.join(current_app.root_path, '..'))
+    absolute_path = os.path.join(project_root, answer.audio_file_path)
+
     # Re-transcribe
-    transcribed_text = transcribe_audio(answer.audio_file_path, eval_config)
+    transcribed_text = transcribe_audio(absolute_path, eval_config)
     answer.answer_text = transcribed_text
     
     # Re-evaluate
