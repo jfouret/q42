@@ -1,6 +1,7 @@
 Flask
 Flask-SQLAlchemy
 langchain
+langchain_openai
 langgraph
 python-dotenv
 openai
