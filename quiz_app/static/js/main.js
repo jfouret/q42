@@ -1,4 +1,28 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const themeSwitcher = document.getElementById('theme-switcher');
+    const htmlElement = document.documentElement;
+
+    const setTheme = (theme) => {
+        htmlElement.setAttribute('data-bs-theme', theme);
+        localStorage.setItem('theme', theme);
+    };
+
+    const toggleTheme = () => {
+        const currentTheme = htmlElement.getAttribute('data-bs-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        setTheme(newTheme);
+    };
+
+    if (themeSwitcher) {
+        themeSwitcher.addEventListener('click', toggleTheme);
+    }
+
+    // Load saved theme
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+        setTheme(savedTheme);
+    }
+
     const nextBtn = document.getElementById('next-btn');
     const skipBtn = document.getElementById('skip-btn');
     const nextQuestionForm = document.getElementById('next-question-form');
