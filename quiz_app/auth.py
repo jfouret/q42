@@ -8,7 +8,7 @@ def login():
     if request.method == 'POST':
         password = request.form.get('password')
         if password == current_app.config['AUTH_PASSWORD']:
-            access_token = create_access_token(identity="user")
+            access_token = create_access_token(identity="user", expires_delta=False)
             response = redirect(url_for('main.index'))
             set_access_cookies(response, access_token)
             return response

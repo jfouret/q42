@@ -61,7 +61,7 @@ For production, it is recommended to use a production-ready WSGI server like Gun
 2.  **Run with Gunicorn:**
     You can start the application with Gunicorn using the following command:
     ```bash
-    gunicorn --bind 0.0.0.0:8000 "quiz_app:create_app()"
+    gunicorn --bind 0.0.0.0:8000 --timeout 600 "quiz_app:create_app()"
     ```
     This will start the application on port 8000. You should place a reverse proxy like Nginx or Caddy in front of it to handle HTTPS and serve static files.
 
