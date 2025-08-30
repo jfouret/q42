@@ -62,3 +62,7 @@ class Config:
     # Speechify TTS Configuration
     SPEECHIFY_API_TOKEN = os.environ.get('SPEECHIFY_API_TOKEN')
     TTS_AUDIO_DIR = os.environ.get("TTS_AUDIO_DIR", os.path.join(BASE_DIR, 'quiz_app', 'static', 'audio', 'tts'))
+
+    # JWT & Authentication Configuration
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'a_default_jwt_secret_key')
+    AUTH_PASSWORD = os.environ.get('AUTH_PASSWORD', 'password')

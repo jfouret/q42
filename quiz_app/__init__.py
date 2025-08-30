@@ -1,5 +1,6 @@
-from flask import Flask
+from flask import Flask, request, redirect, url_for, g, session
 from flask_sqlalchemy import SQLAlchemy
+from flask_jwt_extended import JWTManager, verify_jwt_in_request, get_jwt_identity
 import os
 import markdown
 from jinja2 import pass_context
@@ -7,6 +8,7 @@ from markupsafe import Markup
 
 # Initialize extensions
 db = SQLAlchemy()
+jwt = JWTManager()
 
 def create_app():
     """Create and configure an instance of the Flask application."""
@@ -14,6 +16,10 @@ def create_app():
     
     # Load configuration from config.py
     app.config.from_object('config.Config')
+
+    # Configure JWT
+    app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
+    app.config["JWT_COOKIE_CSRF_PROTECT"] = False # Keep it simple for this use case
 
     # Ensure the instance folder exists
     try:
@@ -23,6 +29,7 @@ def create_app():
 
     # Initialize extensions with the app
     db.init_app(app)
+    jwt.init_app(app)
 
     # Custom Markdown filter
     @app.template_filter('markdown')
@@ -30,9 +37,22 @@ def create_app():
     def markdown_filter(context, value):
         return Markup(markdown.markdown(value, extensions=['fenced_code']))
 
+    @app.before_request
+    def before_request_hook():
+        # The login page and static files should be accessible without a JWT
+        if request.endpoint and (request.endpoint.startswith('auth.') or request.endpoint == 'static'):
+            return
+
+        try:
+            verify_jwt_in_request()
+            g.user = get_jwt_identity()
+        except Exception as e:
+            return redirect(url_for('auth.login'))
+
     with app.app_context():
         # Import parts of our application
         from . import routes
+        from . import auth
         from .models import Question # Import models here
         
         # Create database tables for our models
@@ -46,5 +66,6 @@ def create_app():
 
         # Register blueprints
         app.register_blueprint(routes.main_bp)
+        app.register_blueprint(auth.auth_bp)
 
         return app
