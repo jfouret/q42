@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="my-4">Settings</h1>
+
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Speech-to-Text Provider</h5>
+            <p class="card-text">Select your preferred service for transcribing audio answers.</p>
+            
+            <form method="POST" action="{{ url_for('main.settings') }}">
+                <div class="form-group">
+                    <label for="stt_provider">Current Provider: <strong>{{ current_provider|capitalize }}</strong></label>
+                    <select class="form-control" id="stt_provider" name="stt_provider">
+                        <option value="mistral" {% if current_provider == 'mistral' %}selected{% endif %}>Mistral</option>
+                        <option value="deepgram" {% if current_provider == 'deepgram' %}selected{% endif %}>Deepgram</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Save Settings</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

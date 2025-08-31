@@ -29,6 +29,9 @@
                     <li class="nav-item {% if request.path == url_for('main.categories_summary') %}active{% endif %}">
                         <a class="nav-link" href="{{ url_for('main.categories_summary') }}">Categories</a>
                     </li>
+                    <li class="nav-item {% if request.path == url_for('main.settings') %}active{% endif %}">
+                        <a class="nav-link" href="{{ url_for('main.settings') }}">Settings</a>
+                    </li>
                 </ul>
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">

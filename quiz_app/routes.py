@@ -12,6 +12,18 @@ from werkzeug.utils import secure_filename
 
 main_bp = Blueprint('main', __name__)
 
+@main_bp.route('/settings', methods=['GET', 'POST'])
+def settings():
+    """Displays and saves user preferences, like the STT provider."""
+    if request.method == 'POST':
+        stt_provider = request.form.get('stt_provider')
+        if stt_provider in ['deepgram', 'mistral']:
+            session['stt_provider'] = stt_provider
+        return redirect(url_for('main.settings'))
+
+    current_provider = session.get('stt_provider', 'mistral')
+    return render_template('settings.html', current_provider=current_provider)
+
 @main_bp.route('/')
 def index():
     """Homepage: Displays the quiz configuration form."""
@@ -153,6 +165,7 @@ def _process_session_answers(session_id):
         'DEEPGRAM_API_KEY': current_app.config.get('DEEPGRAM_API_KEY'),
         'DEEPGRAM_MODEL': current_app.config.get('DEEPGRAM_MODEL'),
         'DEEPGRAM_LANGUAGE': current_app.config.get('DEEPGRAM_LANGUAGE'),
+        'MISTRAL_API_KEY': current_app.config.get('MISTRAL_API_KEY'),
         'OPENROUTER_API_KEY': current_app.config.get('OPENROUTER_API_KEY'),
         'REASONING_MODEL': current_app.config.get('REASONING_MODEL'),
         'REASONING_TEMPERATURE': current_app.config.get('REASONING_TEMPERATURE'),
@@ -283,6 +296,7 @@ def _get_eval_config():
         'DEEPGRAM_API_KEY': current_app.config.get('DEEPGRAM_API_KEY'),
         'DEEPGRAM_MODEL': current_app.config.get('DEEPGRAM_MODEL'),
         'DEEPGRAM_LANGUAGE': current_app.config.get('DEEPGRAM_LANGUAGE'),
+        'MISTRAL_API_KEY': current_app.config.get('MISTRAL_API_KEY'),
         'DEEPGRAM_MAX_RETRIES': current_app.config.get('DEEPGRAM_MAX_RETRIES', 3),
         'DEEPGRAM_RETRY_DELAY': current_app.config.get('DEEPGRAM_RETRY_DELAY', 1),
         'OPENROUTER_API_KEY': current_app.config.get('OPENROUTER_API_KEY'),

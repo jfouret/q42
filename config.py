@@ -36,6 +36,9 @@ class Config:
     DEEPGRAM_MODEL = os.environ.get('DEEPGRAM_MODEL', 'nova-3')
     DEEPGRAM_LANGUAGE = os.environ.get('DEEPGRAM_LANGUAGE', 'multi')
 
+    # Mistral API Configuration
+    MISTRAL_API_KEY = os.environ.get('MISTRAL_API_KEY')
+
     # OpenRouter LLM Configuration
     OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
     

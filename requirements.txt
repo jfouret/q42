@@ -11,3 +11,4 @@ Markdown
 requests
 Flask-JWT-Extended
 gunicorn
+mistralai
