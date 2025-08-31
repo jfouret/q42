@@ -53,6 +53,7 @@
                     <button class="btn btn-sm btn-outline-primary" onclick="retranscribe({{ answer.id }})">Re-transcribe</button>
                     <button class="btn btn-sm btn-outline-secondary" onclick="reevaluate({{ answer.id }})">Re-evaluate</button>
                     <button class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#editModal-{{ answer.id }}">Edit Transcription</button>
+                    <a href="{{ url_for('main.question_detail', question_id=answer.question.id) }}" class="btn btn-sm btn-outline-dark">View Question Details</a>
                 </div>
             </div>
         </div>

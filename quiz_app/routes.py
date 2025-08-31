@@ -395,6 +395,8 @@ def questions_list():
     from sqlalchemy import func, desc
     from sqlalchemy.orm import aliased
 
+    show_unanswered = request.args.get('show_unanswered')
+
     # Subquery to find the last answer for each question
     last_answer_subquery = db.session.query(
         Answer.question_id,
@@ -403,7 +405,7 @@ def questions_list():
 
     last_answer = aliased(Answer)
 
-    questions_with_stats = db.session.query(
+    query = db.session.query(
         Question,
         func.count(Answer.id).label('times_answered'),
         func.avg(Answer.score).label('avg_score'),
@@ -415,9 +417,12 @@ def questions_list():
     ).outerjoin(Answer, Question.id == Answer.question_id)\
      .outerjoin(last_answer_subquery, Question.id == last_answer_subquery.c.question_id)\
      .outerjoin(last_answer, (last_answer.question_id == last_answer_subquery.c.question_id) & (last_answer.timestamp == last_answer_subquery.c.last_timestamp))\
-     .group_by(Question.id)\
-     .order_by(Question.id)\
-     .all()
+     .group_by(Question.id)
+
+    if not show_unanswered:
+        query = query.having(func.count(Answer.id) > 0)
+
+    questions_with_stats = query.order_by(Question.id).all()
      
     # The query returns tuples, so we need to combine them
     questions = []
@@ -525,3 +530,58 @@ def delete_session(session_id):
     db.session.delete(session_to_delete)
     db.session.commit()
     return redirect(url_for('main.sessions_list'))
+
+@main_bp.route('/question/<int:question_id>')
+def question_detail(question_id):
+    """Displays a detailed view of a single question and all its answers."""
+    from sqlalchemy import func, desc
+
+    question = Question.query.get_or_404(question_id)
+    
+    # Query for all answers to this question, ordered by timestamp
+    answers = Answer.query.filter_by(question_id=question_id).order_by(desc(Answer.timestamp)).all()
+    
+    # Calculate statistics
+    num_attempts = len(answers)
+    if num_attempts > 0:
+        avg_score = sum(a.score for a in answers if a.score is not None) / num_attempts
+        last_answer = answers[0]
+        last_score = last_answer.score
+        avg_duration = sum(a.duration for a in answers if a.duration is not None) / num_attempts
+        last_duration = last_answer.duration
+    else:
+        avg_score = 0
+        last_score = None
+        avg_duration = 0
+        last_duration = None
+
+    stats = {
+        'num_attempts': num_attempts,
+        'avg_score': avg_score,
+        'last_score': last_score,
+        'avg_duration': avg_duration,
+        'last_duration': last_duration,
+    }
+
+    return render_template('question_detail.html', question=question, answers=answers, stats=stats)
+
+@main_bp.route('/start_single_question_quiz', methods=['POST'])
+def start_single_question_quiz():
+    """Starts a new quiz with only one question."""
+    question_id = request.form.get('question_id')
+    if not question_id:
+        return redirect(url_for('main.index'))
+
+    question = Question.query.get_or_404(question_id)
+
+    # Create a new quiz session
+    new_session = QuizSession(config=f"Single question: {question_id}")
+    db.session.add(new_session)
+    db.session.commit()
+
+    # Store quiz info in the user's session
+    session['quiz_session_id'] = new_session.id
+    session['question_ids'] = [question.id]
+    session['current_question_index'] = 0
+
+    return redirect(url_for('main.quiz'))
