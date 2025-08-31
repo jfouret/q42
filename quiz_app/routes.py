@@ -161,6 +161,9 @@ def _process_session_answers(session_id):
     if not answers_to_process:
         return
 
+    # Get the provider from the session before entering the thread pool
+    stt_provider = session.get('stt_provider', 'mistral')
+
     eval_config = {
         'DEEPGRAM_API_KEY': current_app.config.get('DEEPGRAM_API_KEY'),
         'DEEPGRAM_MODEL': current_app.config.get('DEEPGRAM_MODEL'),
@@ -187,13 +190,19 @@ def _process_session_answers(session_id):
             "answer_id": answer.id,
             "audio_path": absolute_audio_path,
             "question_text": answer.question.question_text,
-            "category": answer.question.category
+            "category": answer.question.category,
+            "stt_provider": stt_provider  # Pass the provider to the task
         })
 
     def process_single_answer(task_data):
         try:
             duration = get_audio_duration(task_data["audio_path"])
-            transcribed_text = transcribe_audio(task_data["audio_path"], eval_config)
+            # Pass the provider to the transcription function
+            transcribed_text = transcribe_audio(
+                task_data["audio_path"], 
+                eval_config, 
+                provider=task_data["stt_provider"]
+            )
             evaluation_result = evaluate_answer(
                 task_data["question_text"], transcribed_text, task_data["category"], eval_config, duration
             )
@@ -345,8 +354,11 @@ def re_transcribe(answer_id):
     project_root = os.path.abspath(os.path.join(current_app.root_path, '..'))
     absolute_path = os.path.join(project_root, answer.audio_file_path)
 
-    # Re-transcribe
-    transcribed_text = transcribe_audio(absolute_path, eval_config)
+    # Get the provider from the session
+    stt_provider = session.get('stt_provider', 'mistral')
+
+    # Re-transcribe, passing the provider
+    transcribed_text = transcribe_audio(absolute_path, eval_config, provider=stt_provider)
     answer.answer_text = transcribed_text
     
     # Re-evaluate
