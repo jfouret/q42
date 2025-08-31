@@ -27,8 +27,10 @@
                     <th scope="col">Category</th>
                     <th scope="col">Avg Score</th>
                     <th scope="col">Max Score</th>
-                    <th scope="col">Avg Duration (s)</th>
                     <th scope="col">Num Questions</th>
+                    <th scope="col">>=4/5</th>
+                    <th scope="col">N>2 & <4</th>
+                    <th scope="col">N>2</th>
                 </tr>
             </thead>
             <tbody>
@@ -37,12 +39,14 @@
                     <td>{{ stat.category }}</td>
                     <td>{{ '%.2f'|format(stat.avg_score|float) if stat.avg_score is not none else 'N/A' }}</td>
                     <td>{{ stat.max_score if stat.max_score is not none else 'N/A' }}</td>
-                    <td>{{ '%.2f'|format(stat.avg_duration|float) if stat.avg_duration is not none else 'N/A' }}</td>
                     <td>{{ stat.num_questions }}</td>
+                    <td>{{ '%.1f%%'|format((stat.ge_4_5 / stat.num_questions) * 100) if stat.num_questions > 0 else '0.0%' }}</td>
+                    <td>{{ '%.1f%%'|format((stat.n_gt_2_lt_4 / stat.num_questions) * 100) if stat.num_questions > 0 else '0.0%' }}</td>
+                    <td>{{ '%.1f%%'|format((stat.n_gt_2 / stat.num_questions) * 100) if stat.num_questions > 0 else '0.0%' }}</td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="text-center">No data available for the selected period.</td>
+                    <td colspan="7" class="text-center">No data available for the selected period.</td>
                 </tr>
                 {% endfor %}
             </tbody>

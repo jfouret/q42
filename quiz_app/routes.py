@@ -392,7 +392,7 @@ def reprocess_session(session_id):
 @main_bp.route('/questions')
 def questions_list():
     """Displays a list of all questions and their stats."""
-    from sqlalchemy import func, desc
+    from sqlalchemy import func, desc, case
     from sqlalchemy.orm import aliased
 
     show_unanswered = request.args.get('show_unanswered')
@@ -405,60 +405,104 @@ def questions_list():
 
     last_answer = aliased(Answer)
 
-    query = db.session.query(
-        Question,
+    # Base query for question stats
+    question_stats_sq = db.session.query(
+        Question.id.label('question_id'),
         func.count(Answer.id).label('times_answered'),
         func.avg(Answer.score).label('avg_score'),
-        func.max(Answer.score).label('max_score'),
+        func.max(Answer.score).label('max_score')
+    ).join(Answer, Question.id == Answer.question_id)\
+     .group_by(Question.id).subquery()
+
+    # Main query combining question info with stats
+    query = db.session.query(
+        Question,
+        question_stats_sq.c.times_answered,
+        question_stats_sq.c.avg_score,
+        question_stats_sq.c.max_score,
         func.avg(Answer.duration).label('avg_duration'),
         func.min(Answer.duration).label('min_duration'),
         last_answer.duration.label('last_duration'),
         last_answer.score.label('last_score')
-    ).outerjoin(Answer, Question.id == Answer.question_id)\
+    ).outerjoin(question_stats_sq, Question.id == question_stats_sq.c.question_id)\
+     .outerjoin(Answer, Question.id == Answer.question_id)\
      .outerjoin(last_answer_subquery, Question.id == last_answer_subquery.c.question_id)\
      .outerjoin(last_answer, (last_answer.question_id == last_answer_subquery.c.question_id) & (last_answer.timestamp == last_answer_subquery.c.last_timestamp))\
      .group_by(Question.id)
 
     if not show_unanswered:
-        query = query.having(func.count(Answer.id) > 0)
+        query = query.filter(question_stats_sq.c.times_answered > 0)
 
     questions_with_stats = query.order_by(Question.id).all()
      
-    # The query returns tuples, so we need to combine them
     questions = []
-    for q_obj, times_answered, avg_score, max_score, avg_duration, min_duration, last_duration, last_score in questions_with_stats:
-        q_obj.times_answered = times_answered
-        q_obj.avg_score = avg_score
-        q_obj.max_score = max_score
-        q_obj.avg_duration = avg_duration
-        q_obj.min_duration = min_duration
-        q_obj.last_duration = last_duration
-        q_obj.last_score = last_score
+    for row in questions_with_stats:
+        q_obj = row[0]
+        q_obj.times_answered = row[1] or 0
+        q_obj.avg_score = row[2]
+        q_obj.max_score = row[3]
+        q_obj.avg_duration = row[4]
+        q_obj.min_duration = row[5]
+        q_obj.last_duration = row[6]
+        q_obj.last_score = row[7]
         questions.append(q_obj)
+
+    # Calculate overall metrics
+    answered_once = db.session.query(func.count(question_stats_sq.c.question_id)).filter(question_stats_sq.c.times_answered >= 1).scalar()
+    answered_twice = db.session.query(func.count(question_stats_sq.c.question_id)).filter(question_stats_sq.c.times_answered >= 2).scalar()
+    
+    answered_twice_low_score = db.session.query(func.count(question_stats_sq.c.question_id)).filter(
+        question_stats_sq.c.times_answered >= 2,
+        question_stats_sq.c.avg_score < 4
+    ).scalar()
+
+    max_score_high = db.session.query(func.count(question_stats_sq.c.question_id)).filter(
+        question_stats_sq.c.max_score >= 4
+    ).scalar()
+
+    metrics = {
+        'answered_once': answered_once,
+        'answered_twice': answered_twice,
+        'answered_twice_low_score': answered_twice_low_score,
+        'max_score_high': max_score_high
+    }
         
-    return render_template('questions.html', questions=questions)
+    return render_template('questions.html', questions=questions, metrics=metrics)
 
 @main_bp.route('/categories')
 def categories_summary():
     """Displays a summary of performance by category."""
-    from sqlalchemy import func, desc
+    from sqlalchemy import func, desc, case
 
     last_n_sessions = request.args.get('last_n_sessions', type=int)
 
-    query = db.session.query(
+    # Subquery to get question-level stats
+    question_stats_sq = db.session.query(
+        Question.id.label('question_id'),
         Question.category,
+        func.count(Answer.id).label('times_answered'),
         func.avg(Answer.score).label('avg_score'),
-        func.max(Answer.score).label('max_score'),
-        func.avg(Answer.duration).label('avg_duration'),
-        func.count(Answer.id).label('num_questions')
+        func.max(Answer.score).label('max_score')
     ).join(Answer, Question.id == Answer.question_id)
 
     if last_n_sessions:
-        # Get the IDs of the last N sessions
         latest_session_ids = [s.id for s in db.session.query(QuizSession.id).order_by(desc(QuizSession.start_time)).limit(last_n_sessions).all()]
-        query = query.filter(Answer.session_id.in_(latest_session_ids))
+        question_stats_sq = question_stats_sq.filter(Answer.session_id.in_(latest_session_ids))
+    
+    question_stats_sq = question_stats_sq.group_by(Question.id).subquery()
 
-    category_stats = query.group_by(Question.category).order_by(Question.category).all()
+    # Main query to aggregate by category
+    category_stats_query = db.session.query(
+        question_stats_sq.c.category,
+        func.avg(question_stats_sq.c.avg_score).label('avg_score'),
+        func.max(question_stats_sq.c.max_score).label('max_score'),
+        func.count(question_stats_sq.c.question_id).label('num_questions'),
+        func.sum(case((question_stats_sq.c.max_score >= 4, 1), else_=0)).label('ge_4_5'),
+        func.sum(case((question_stats_sq.c.times_answered > 2, 1), else_=0)).label('n_gt_2'),
+        func.sum(case(((question_stats_sq.c.times_answered > 2) & (question_stats_sq.c.avg_score < 4), 1), else_=0)).label('n_gt_2_lt_4')
+    ).group_by(question_stats_sq.c.category).order_by(question_stats_sq.c.category)
+
+    category_stats = category_stats_query.all()
 
     return render_template('categories.html', category_stats=category_stats, last_n_sessions=last_n_sessions)
 

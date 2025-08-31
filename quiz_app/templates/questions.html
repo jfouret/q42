@@ -6,6 +6,30 @@
 <div class="container">
     <h1 class="mb-4">All Questions</h1>
 
+    {% if metrics %}
+    <div class="card mb-4">
+        <div class="card-header">
+            Overall Metrics
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Answered at least once:</strong> {{ metrics.answered_once }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Answered at least twice:</strong> {{ metrics.answered_twice }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Answered ≥ 2 times with avg score < 4:</strong> {{ metrics.answered_twice_low_score }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Max score ≥ 4:</strong> {{ metrics.max_score_high }}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="row mb-3">
         <div class="col-md-3">
             <select id="filter-field" class="form-select">
