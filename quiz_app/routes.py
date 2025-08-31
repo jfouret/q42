@@ -182,7 +182,7 @@ def _process_session_answers(session_id):
             duration = get_audio_duration(task_data["audio_path"])
             transcribed_text = transcribe_audio(task_data["audio_path"], eval_config)
             evaluation_result = evaluate_answer(
-                task_data["question_text"], transcribed_text, task_data["category"], eval_config
+                task_data["question_text"], transcribed_text, task_data["category"], eval_config, duration
             )
             return {
                 "answer_id": task_data["answer_id"], "duration": duration,
@@ -299,14 +299,20 @@ def _get_eval_config():
         'STRUCTURED_CONTEXT_SYSTEM': current_app.config.get('STRUCTURED_CONTEXT_SYSTEM'),
     }
 
-def _reevaluate_and_save(answer):
+def _reevaluate_and_save(answer, duration=None):
     """Helper function to re-evaluate an answer and save it."""
     eval_config = _get_eval_config()
+    
+    # If duration is not provided, try to get it from the answer object
+    if duration is None:
+        duration = answer.duration
+
     evaluation_result = evaluate_answer(
         answer.question.question_text,
         answer.answer_text,
         answer.question.category,
-        eval_config
+        eval_config,
+        duration
     )
     answer.score = evaluation_result.get("score")
     answer.justification = evaluation_result.get("justification")
@@ -330,7 +336,7 @@ def re_transcribe(answer_id):
     answer.answer_text = transcribed_text
     
     # Re-evaluate
-    updated_answer = _reevaluate_and_save(answer)
+    updated_answer = _reevaluate_and_save(answer, duration=answer.duration)
 
     return jsonify({
         "success": True,
@@ -365,7 +371,7 @@ def edit_transcription(answer_id):
         return jsonify({"success": False, "error": "No text provided."}), 400
 
     answer.answer_text = new_text
-    updated_answer = _reevaluate_and_save(answer)
+    updated_answer = _reevaluate_and_save(answer, duration=answer.duration)
 
     return jsonify({
         "success": True,

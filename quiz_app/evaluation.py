@@ -8,6 +8,16 @@ from pydantic import BaseModel, Field
 # Suppress the verbose warning by setting the global verbosity flag
 set_verbose(False)
 
+def format_duration(seconds):
+    """Formats duration in seconds to a 'X min Y sec' string."""
+    if seconds is None:
+        return "N/A"
+    minutes = int(seconds // 60)
+    remaining_seconds = int(seconds % 60)
+    if minutes > 0:
+        return f"{minutes} min {remaining_seconds} sec"
+    return f"{remaining_seconds} sec"
+
 # Define the desired JSON structure for the score
 class QuizGrade(BaseModel):
     score: int = Field(description="The score from 1 to 5, where 1 is poor and 5 is excellent.")
@@ -26,7 +36,7 @@ def get_openrouter_client(model_name, temperature, top_k, api_key, max_retries):
         max_retries=max_retries
     )
 
-def evaluate_answer(question, answer, category, config):
+def evaluate_answer(question, answer, category, config, duration=None):
     """
     Evaluates a user's answer using a two-step LLM process via OpenRouter.
     1. A reasoning model generates a detailed justification.
@@ -49,12 +59,15 @@ def evaluate_answer(question, answer, category, config):
         reasoning_context_system = config.get("REASONING_CONTEXT_SYSTEM", "")
         reasoning_context_user = config.get("REASONING_CONTEXT_USER", "")
 
+        formatted_duration = format_duration(duration)
+
         reasoning_prompt_text = f"""{reasoning_context_system}
             You are an expert evaluator in the field of {{category}}. Your task is to provide a detailed, constructive critique of a user's answer to a quiz question.
             
             Category: {{category}}
             Question: "{{question}}"
             User's Answer: "{{answer}}"
+            Answer Duration: {formatted_duration}
             
             {reasoning_context_user}
             
@@ -65,7 +78,7 @@ def evaluate_answer(question, answer, category, config):
         
         reasoning_chain = reasoning_prompt | reasoning_client | StrOutputParser()
         justification = reasoning_chain.invoke({
-            "question": question, 
+            "question": question,
             "answer": answer,
             "category": category
         })
@@ -88,6 +101,7 @@ def evaluate_answer(question, answer, category, config):
             Category: {{category}}
             Question: "{{question}}"
             User's Answer: "{{answer}}"
+            Answer Duration: {formatted_duration}
             Evaluation: "{{justification}}"
             
             {structured_context_user}
