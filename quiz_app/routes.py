@@ -5,7 +5,7 @@ from .stt import transcribe_audio
 from .evaluation import evaluate_answer
 from .audio_utils import get_audio_duration
 from .tts import generate_speech_file
-from .translate import get_translated_question, translate_question, save_translated_question
+from .translate import get_translated_question, translate_question, save_translated_question, get_translated_question_path
 from . import db
 import os
 import concurrent.futures
@@ -601,22 +601,35 @@ def generate_alt_audio():
     if not os.path.exists(audio_dir):
         os.makedirs(audio_dir)
     with concurrent.futures.ThreadPoolExecutor(max_workers=25) as executor:
-        future_to_question = {executor.submit(translate_question, q.question_text, api_key, alt_language): q for q in questions}
-        for future in concurrent.futures.as_completed(future_to_question):
-            question = future_to_question[future]
+        futures = []
+        for q in questions:
+            if not os.path.exists(get_translated_question_path(q.id, text_dir)):
+                futures.append(executor.submit(translate_question, q.question_text, api_key, alt_language))
+
+        for future in concurrent.futures.as_completed(futures):
             try:
                 translated_text = future.result()
+                # Find the question associated with the translated text
+                for q in questions:
+                    if q.question_text == future.arg:
+                        question = q
+                        break
                 save_translated_question(question.id, translated_text, text_dir)
-                file_path_alt, status_alt = generate_speech_file(question.id, translated_text, token, audio_dir, is_alt=True)
-                if status_alt == 'created':
-                    created_count += 1
-                elif status_alt == 'skipped':
-                    skipped_count += 1
-                else:
-                    failed_count += 1
             except Exception as exc:
-                print(f'{question.id} generated an exception: {exc}')
+                print(f'A question generated an exception: {exc}')
                 failed_count += 1
+    # Second pass for audio generation for existing translations
+    for q in questions:
+        translated_text = get_translated_question(q.id, text_dir)
+        if translated_text:
+            file_path_alt, status_alt = generate_speech_file(q.id, translated_text, token, audio_dir, is_alt=True)
+            if status_alt == 'created':
+                created_count += 1
+            elif status_alt == 'skipped':
+                skipped_count += 1
+            else:
+                failed_count += 1
+
 
     return jsonify({
         'success': True, 
