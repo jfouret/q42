@@ -620,7 +620,7 @@ def generate_alt_audio():
             if translated_text:
                 futures2.append(executor.submit(generate_speech_file, q.id, translated_text, token, audio_dir, True))
         for future in concurrent.futures.as_completed(futures2):
-            file_path_alt, status_alt = future.result
+            file_path_alt, status_alt = future.result()
             if status_alt == 'created':
                 created_count += 1
             elif status_alt == 'skipped':
