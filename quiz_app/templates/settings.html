@@ -23,5 +23,29 @@
             </form>
         </div>
     </div>
+
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5 class="card-title">Language Settings</h5>
+            <p class="card-text">Select the alternative language for questions and audio.</p>
+            
+            <form method="POST" action="{{ url_for('main.settings') }}">
+                <div class="form-group">
+                    <label for="alt_language">Alternative Language</label>
+                    <select class="form-control" id="alt_language" name="alt_language">
+                        <option value="en" {% if session.get('alt_language', 'en') == 'en' %}selected{% endif %}>English</option>
+                        <option value="fr" {% if session.get('alt_language', 'en') == 'fr' %}selected{% endif %}>French</option>
+                    </select>
+                </div>
+
+                <div class="form-group form-check mt-3">
+                    <input type="checkbox" class="form-check-input" id="enforce_alt_language" name="enforce_alt_language" value="true" {% if session.get('enforce_alt_language') %}checked{% endif %}>
+                    <label class="form-check-label" for="enforce_alt_language">Enforce alternative language</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary mt-3">Save Language Settings</button>
+            </form>
+        </div>
+    </div>
 </div>
 {% endblock %}

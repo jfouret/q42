@@ -74,6 +74,7 @@
         <div id="admin-alert" class="alert d-none" role="alert"></div>
         <div class="d-grid gap-2 d-md-flex">
             <button id="generate-audio-btn" class="btn btn-warning">Generate Question Audio</button>
+            <button id="generate-alt-audio-btn" class="btn btn-warning">Generate Alternate Audio</button>
             <form action="{{ url_for('main.reset_database') }}" method="post" onsubmit="return confirm('Are you sure you want to delete all quiz data? This cannot be undone.');" class="d-inline">
                 <button type="submit" class="btn btn-danger">Reset Database</button>
             </form>
@@ -86,6 +87,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const generateAudioBtn = document.getElementById('generate-audio-btn');
+    const generateAltAudioBtn = document.getElementById('generate-alt-audio-btn');
     const testMicBtn = document.getElementById('test-mic-btn');
     const testVolumeBtn = document.getElementById('test-volume-btn');
     const adminAlert = document.getElementById('admin-alert');
@@ -113,6 +115,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 showAlert(adminAlert, 'A network error occurred.', 'danger');
             } finally {
                 generateAudioBtn.disabled = false;
+            }
+        });
+    }
+
+    if (generateAltAudioBtn) {
+        generateAltAudioBtn.addEventListener('click', async () => {
+            showAlert(adminAlert, 'Generating alternate audio files... This may take a moment.', 'info');
+            generateAltAudioBtn.disabled = true;
+            try {
+                const response = await fetch("{{ url_for('main.generate_alt_audio') }}", { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    showAlert(adminAlert, data.message, 'success');
+                } else {
+                    showAlert(adminAlert, data.message || 'An unknown error occurred.', 'danger');
+                }
+            } catch (error) {
+                showAlert(adminAlert, 'A network error occurred.', 'danger');
+            } finally {
+                generateAltAudioBtn.disabled = false;
             }
         });
     }

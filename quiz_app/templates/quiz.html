@@ -13,9 +13,17 @@
         </div>
         
         <div id="question-display" class="text-center">
-            <audio id="question-audio" src="{{ url_for('static', filename='audio/tts/question_' ~ question.id ~ '.wav') }}"></audio>
-            <button id="start-question-btn" class="btn btn-success btn-lg mb-3">Start Question</button>
-            <h2 id="question-text" class="card-title d-none">{{ question.question_text }}</h2>
+            {% if session.get('enforce_alt_language') %}
+                <audio id="question-audio" src="{{ url_for('static', filename='audio/tts/question_' ~ question.id ~ '.alt.wav') }}"></audio>
+                <button id="start-question-btn" class="btn btn-success btn-lg mb-3">Start Question ({{ session.get('alt_language', 'en') }})</button>
+                <h2 id="question-text" class="card-title d-none">{{ get_translated_question(question.id) }}</h2>
+            {% else %}
+                <audio id="question-audio" src="{{ url_for('static', filename='audio/tts/question_' ~ question.id ~ '.wav') }}"></audio>
+                <audio id="question-audio-alt" src="{{ url_for('static', filename='audio/tts/question_' ~ question.id ~ '.alt.wav') }}"></audio>
+                <button id="start-question-btn" class="btn btn-success btn-lg mb-3">Start Question</button>
+                <button id="start-question-alt-btn" class="btn btn-info btn-lg mb-3">Play in {{ session.get('alt_language', 'en') }}</button>
+                <h2 id="question-text" class="card-title d-none">{{ question.question_text }}</h2>
+            {% endif %}
             <button id="show-question-btn" class="btn btn-sm btn-outline-secondary mb-3 d-none">Show Question Text</button>
         </div>
 

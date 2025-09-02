@@ -5,22 +5,18 @@ from flask import current_app
 
 API_URL = "https://api.sws.speechify.com/v1/audio/speech"
 
-def generate_speech_file(question_id, question_text):
+def generate_speech_file(question_id, question_text, token, audio_dir, is_alt=False):
     """
     Generates a speech audio file for a given question text using Speechify's REST API.
     Saves the file to the configured TTS audio directory.
     Skips generation if the file already exists.
     """
-    speechify_token = current_app.config.get('SPEECHIFY_API_TOKEN')
-    if not speechify_token:
+    if not token:
         print("Speechify API token is not configured.")
         return None, 'failed'
 
-    audio_dir = current_app.config.get('TTS_AUDIO_DIR')
-    if not os.path.exists(audio_dir):
-        os.makedirs(audio_dir)
-
-    file_path = os.path.join(audio_dir, f"question_{question_id}.wav")
+    suffix = ".alt.wav" if is_alt else ".wav"
+    file_path = os.path.join(audio_dir, f"question_{question_id}{suffix}")
 
     if os.path.exists(file_path):
         print(f"Audio file for question {question_id} already exists. Skipping.")
@@ -28,7 +24,7 @@ def generate_speech_file(question_id, question_text):
 
     try:
         headers = {
-            "Authorization": f"Bearer {speechify_token}",
+            "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
 

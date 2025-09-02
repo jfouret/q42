@@ -23,6 +23,7 @@ instance/
 # Uploads
 quiz_app/uploads/
 quiz_app/static/audio/tts
+quiz_app/static/text
 
 # Import questions
 data/CNRS_QUESTIONS

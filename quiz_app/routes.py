@@ -5,6 +5,7 @@ from .stt import transcribe_audio
 from .evaluation import evaluate_answer
 from .audio_utils import get_audio_duration
 from .tts import generate_speech_file
+from .translate import get_translated_question, translate_question, save_translated_question
 from . import db
 import os
 import concurrent.futures
@@ -19,6 +20,13 @@ def settings():
         stt_provider = request.form.get('stt_provider')
         if stt_provider in ['deepgram', 'mistral']:
             session['stt_provider'] = stt_provider
+
+        alt_language = request.form.get('alt_language')
+        if alt_language in ['en', 'fr']:
+            session['alt_language'] = alt_language
+
+        session['enforce_alt_language'] = 'enforce_alt_language' in request.form
+        
         return redirect(url_for('main.settings'))
 
     current_provider = session.get('stt_provider', 'mistral')
@@ -82,7 +90,8 @@ def quiz():
     question_id = question_ids[current_index]
     question = Question.query.get_or_404(question_id)
     
-    return render_template('quiz.html', question=question, current_index=current_index, total_questions=len(question_ids))
+    text_dir = os.path.join(current_app.static_folder, 'text')
+    return render_template('quiz.html', question=question, current_index=current_index, total_questions=len(question_ids), get_translated_question=lambda qid: get_translated_question(qid, text_dir))
 
 @main_bp.route('/submit_answer', methods=['POST'])
 def submit_answer():
@@ -557,8 +566,14 @@ def generate_audio():
     skipped_count = 0
     failed_count = 0
 
+    token = current_app.config.get('SPEECHIFY_API_TOKEN')
+    audio_dir = current_app.config.get('TTS_AUDIO_DIR')
+    if not os.path.exists(audio_dir):
+        os.makedirs(audio_dir)
+
+
     for question in questions:
-        file_path, status = generate_speech_file(question.id, question.question_text)
+        file_path, status = generate_speech_file(question.id, question.question_text, token, audio_dir)
         if status == 'created':
             created_count += 1
         elif status == 'skipped':
@@ -569,6 +584,43 @@ def generate_audio():
     return jsonify({
         'success': True, 
         'message': f'Audio generation complete. Created: {created_count}, Skipped: {skipped_count}, Failed: {failed_count}'
+    })
+@main_bp.route('/generate-alt-audio', methods=['POST'])
+def generate_alt_audio():
+    """Generates audio files for all questions in the alternative language."""
+    questions = Question.query.all()
+    created_count = 0
+    skipped_count = 0
+    failed_count = 0
+
+    alt_language = session.get('alt_language', 'en')
+    api_key = current_app.config.get('OPENROUTER_API_KEY')
+    text_dir = os.path.join(current_app.static_folder, 'text')
+    token = current_app.config.get('SPEECHIFY_API_TOKEN')
+    audio_dir = current_app.config.get('TTS_AUDIO_DIR')
+    if not os.path.exists(audio_dir):
+        os.makedirs(audio_dir)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=25) as executor:
+        future_to_question = {executor.submit(translate_question, q.question_text, api_key, alt_language): q for q in questions}
+        for future in concurrent.futures.as_completed(future_to_question):
+            question = future_to_question[future]
+            try:
+                translated_text = future.result()
+                save_translated_question(question.id, translated_text, text_dir)
+                file_path_alt, status_alt = generate_speech_file(question.id, translated_text, token, audio_dir, is_alt=True)
+                if status_alt == 'created':
+                    created_count += 1
+                elif status_alt == 'skipped':
+                    skipped_count += 1
+                else:
+                    failed_count += 1
+            except Exception as exc:
+                print(f'{question.id} generated an exception: {exc}')
+                failed_count += 1
+
+    return jsonify({
+        'success': True, 
+        'message': f'Alternate audio generation complete. Created: {created_count}, Skipped: {skipped_count}, Failed: {failed_count}'
     })
 
 @main_bp.route('/export_session/<int:session_id>')

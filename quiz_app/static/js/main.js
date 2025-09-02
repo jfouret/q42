@@ -28,9 +28,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextQuestionForm = document.getElementById('next-question-form');
     const recordingStatus = document.getElementById('recording-status');
     const questionAudio = document.getElementById('question-audio');
+    const questionAudioAlt = document.getElementById('question-audio-alt');
     const showQuestionBtn = document.getElementById('show-question-btn');
     const questionText = document.getElementById('question-text');
     const startQuestionBtn = document.getElementById('start-question-btn');
+    const startQuestionAltBtn = document.getElementById('start-question-alt-btn');
 
     let mediaRecorder;
     let audioChunks = [];
@@ -107,6 +109,16 @@ document.addEventListener('DOMContentLoaded', () => {
         startQuestionBtn.addEventListener('click', () => {
             questionAudio.play();
             startQuestionBtn.style.display = 'none';
+            if (startQuestionAltBtn) startQuestionAltBtn.style.display = 'none';
+            showQuestionBtn.classList.remove('d-none');
+        });
+    }
+
+    if(startQuestionAltBtn) {
+        startQuestionAltBtn.addEventListener('click', () => {
+            questionAudioAlt.play();
+            startQuestionBtn.style.display = 'none';
+            startQuestionAltBtn.style.display = 'none';
             showQuestionBtn.classList.remove('d-none');
         });
     }
@@ -114,6 +126,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (questionAudio) {
         questionAudio.addEventListener('ended', startRecording);
         questionAudio.addEventListener('error', () => {
+            recordingStatus.textContent = 'Error playing question audio. Starting recording.';
+            startRecording();
+        });
+    }
+
+    if (questionAudioAlt) {
+        questionAudioAlt.addEventListener('ended', startRecording);
+        questionAudioAlt.addEventListener('error', () => {
             recordingStatus.textContent = 'Error playing question audio. Starting recording.';
             startRecording();
         });
