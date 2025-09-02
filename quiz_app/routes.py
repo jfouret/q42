@@ -604,25 +604,23 @@ def generate_alt_audio():
         futures = []
         for q in questions:
             if not os.path.exists(get_translated_question_path(q.id, text_dir)):
-                futures.append(executor.submit(translate_question, q.question_text, api_key, alt_language))
+                print(f"Translate question {q.id}")
+                futures.append(executor.submit(translate_question, q.id, q.question_text, api_key, alt_language))
 
         for future in concurrent.futures.as_completed(futures):
             try:
-                translated_text = future.result()
-                # Find the question associated with the translated text
-                for q in questions:
-                    if q.question_text == future.arg:
-                        question = q
-                        break
-                save_translated_question(question.id, translated_text, text_dir)
+                q = future.result()
+                save_translated_question(q["id"], q["text"], text_dir)
             except Exception as exc:
                 print(f'A question generated an exception: {exc}')
-                failed_count += 1
-    # Second pass for audio generation for existing translations
-    for q in questions:
-        translated_text = get_translated_question(q.id, text_dir)
-        if translated_text:
-            file_path_alt, status_alt = generate_speech_file(q.id, translated_text, token, audio_dir, is_alt=True)
+        futures2 = []
+        # Second pass for audio generation for existing translations
+        for q in questions:
+            translated_text = get_translated_question(q.id, text_dir)
+            if translated_text:
+                futures2.append(executor.submit(generate_speech_file, q.id, translated_text, token, audio_dir, True))
+        for future in concurrent.futures.as_completed(futures2):
+            file_path_alt, status_alt = future.result
             if status_alt == 'created':
                 created_count += 1
             elif status_alt == 'skipped':

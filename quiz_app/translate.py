@@ -1,7 +1,10 @@
 import os
+from langchain.globals import set_verbose
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+
+set_verbose(False)
 
 def get_openrouter_client(model_name, temperature, top_k, api_key, max_retries):
     """Helper function to create a ChatOpenAI client for OpenRouter."""
@@ -20,7 +23,7 @@ def get_openrouter_client(model_name, temperature, top_k, api_key, max_retries):
         }
     )
 
-def translate_question(question_text, api_key, target_language="fr"):
+def translate_question(question_id, question_text, api_key, target_language="fr"):
     """
     Translates the question text to the target language using a chat LLM.
     """
@@ -49,7 +52,7 @@ def translate_question(question_text, api_key, target_language="fr"):
         "question_text": question_text
     })
     
-    return translated_text
+    return {"id": question_id, "text": translated_text}
 
 def get_translated_question_path(question_id, text_dir):
     """

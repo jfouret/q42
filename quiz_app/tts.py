@@ -1,7 +1,6 @@
 import os
 import base64
 import requests
-from flask import current_app
 
 API_URL = "https://api.sws.speechify.com/v1/audio/speech"
 
